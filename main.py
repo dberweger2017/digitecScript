@@ -46,11 +46,55 @@ def storeCookies(session, cookiesFilePath = "data/cookies.pkl"):
     with open(cookiesFilePath, 'wb') as file:
         pickle.dump(session.cookies, file)
 
+# Function to change the key name of a dictionary. Python should have a built in function for this
+def change_key_name(dictionary, old_key, new_key):
+    if old_key in dictionary:
+        value = dictionary.pop(old_key)
+        dictionary[new_key] = value
+    return dictionary
+
+# Takes in a session and a productID and raeturns the Lagerstand in a dictionary with the city as the key being the filiale and the value being how many available products there are in that filiale
+def getLagerStand(session, productID):
+    print("Getting the Lagerstand")
+    base_url = "https://erp.digitecgalaxus.ch"
+    find_product_url = base_url + "/de/Product/Availability/"
+
+    r = session.get(find_product_url + productID)
+    soup = BeautifulSoup(r.text, 'html.parser')
+
+    # Find the table
+    table = soup.select_one("#ProductProductWarehouseCompartment2 > div.content.erpBoxContent > div > div > div > table")
+
+    # Parse the table
+    tr_elements = table.find_all("tr")[1:]
+    td_elements = [tr_element.find_all("td")[1:] for tr_element in tr_elements]
+    td_elements = [[td_element.text.strip() for td_element in td_element] for td_element in td_elements]
+
+    lagerstand = {}
+
+    for td_element in td_elements:
+        if td_element[0] == "verfügbar":
+            if td_element[1] not in lagerstand:
+                lagerstand[td_element[1]] = int(td_element[2])
+            else:
+                lagerstand[td_element[1]] += int(td_element[2])
+
+    if "StGallen" in lagerstand:
+        lagerstand = change_key_name(lagerstand, "StGallen", "St. Gallen")
+    if "Zurich" in lagerstand:
+        lagerstand = change_key_name(lagerstand, "Zurich", "Zürich")
+
+    return session, lagerstand
+
 
 def main():
     # Load the cookies pkl file and store them in a session object
     session = get_cookies(validate=True)
 
+    # Get the Lagerstand
+    session, lagerstand = getLagerStand(session, "23253714")
+
+    print(lagerstand)
 
     # Store the cookies in a pickle file
     storeCookies(session)
