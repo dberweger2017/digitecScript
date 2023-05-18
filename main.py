@@ -6,6 +6,7 @@ import pandas as pd
 
 # User defined parameters
 
+# Functions
 def get_cookies(cookiesFilePath = "data/cookies.pkl", validate = True):
     print("Loading the cookies...")
 
@@ -54,13 +55,8 @@ def change_key_name(dictionary, old_key, new_key):
     return dictionary
 
 # Takes in a session and a productID and raeturns the Lagerstand in a dictionary with the city as the key being the filiale and the value being how many available products there are in that filiale
-def getLagerStand(session, productID):
+def getLagerStand(session, soup, productID):
     print("Getting the Lagerstand")
-    base_url = "https://erp.digitecgalaxus.ch"
-    find_product_url = base_url + "/de/Product/Availability/"
-
-    r = session.get(find_product_url + productID)
-    soup = BeautifulSoup(r.text, 'html.parser')
 
     # Find the table
     table = soup.select_one("#ProductProductWarehouseCompartment2 > div.content.erpBoxContent > div > div > div > table")
@@ -87,14 +83,8 @@ def getLagerStand(session, productID):
     return session, lagerstand
 
 # takes in a session and productID and deleates all the zielbestand rules of said product
-def deleateZielbestand(session, productID):
+def deleateZielbestand(session, soup, productID):
     print("Deleating the current Zielbestand")
-
-    base_url = "https://erp.digitecgalaxus.ch"
-    find_product_url = base_url + "/de/Product/Availability/"
-
-    r = session.get(find_product_url + productID)
-    soup = BeautifulSoup(r.text, 'html.parser')
 
     # Find out how many rules there are
     rule_table = soup.select_one("#ProductSiteTargetInventoryOverrideTable4 > form > table")
@@ -104,9 +94,11 @@ def deleateZielbestand(session, productID):
     tr_elements = tbody_elements.find_all("tr")
     hrefs = [tr_element.find_all("a")[0]["href"] for tr_element in tr_elements]
 
+    currentURL = "https://erp.digitecgalaxus.ch/de/Product/Availability/" + productID
+
     # Traverse the hrefs and deleate the rules
     for href in hrefs:
-        deleate_url = base_url + href
+        deleate_url = "https://erp.digitecgalaxus.ch" + href
 
         params = {
             'ajaxerplist': '2'
@@ -123,7 +115,7 @@ def deleateZielbestand(session, productID):
             'Content-Length': '11',
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'Origin': 'https://erp.digitecgalaxus.ch',
-            'Referer': find_product_url,
+            'Referer': currentURL,
             'Sec-Ch-Ua': '"Google Chrome";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
             'Sec-Ch-Ua-Mobile': '?0',
             'Sec-Ch-Ua-Platform': '"Windows"',
@@ -141,14 +133,8 @@ def deleateZielbestand(session, productID):
     return session
 
 # Takes in a session, productID and information about the new Zielbestand and adds it to the product for every filiale in the filialen list
-def addZielbestand(session, productID, from_date, to_date, product_quantity, filialen = ["Basel", "Bern", "Dietikon", "Genf", "Kriens", "Lausanne", "St. Gallen", "Winterthur", "Zürich"]):
+def addZielbestand(session, soup, productID, from_date, to_date, product_quantity, filialen = ["Basel", "Bern", "Dietikon", "Genf", "Kriens", "Lausanne", "St. Gallen", "Winterthur", "Zürich"]):
     print("Adding the new Zielbestand")
-
-    base_url = "https://erp.digitecgalaxus.ch"
-    find_product_url = base_url + "/de/Product/Availability/"
-
-    r = session.get(find_product_url + productID)
-    soup = BeautifulSoup(r.text, 'html.parser')
 
     # Values encoded
     values_encoded ={
@@ -168,7 +154,8 @@ def addZielbestand(session, productID, from_date, to_date, product_quantity, fil
     mandant = soup.select_one("#ProductBox1 > div.content.erpBoxContent > div:nth-child(3) > div:nth-child(8) > div:nth-child(2)").text.strip()
 
     # The url on which the post request is made
-    create_url = base_url + f"/ProductSiteTargetInventoryOverride/TableNew/{mandant}"
+    create_url = "https://erp.digitecgalaxus.ch/ProductSiteTargetInventoryOverride/TableNew/" + mandant
+    currentURL = "https://erp.digitecgalaxus.ch/de/Product/Availability/" + productID
 
     for filiale in filialen:
 
@@ -187,7 +174,7 @@ def addZielbestand(session, productID, from_date, to_date, product_quantity, fil
         headers = {
             "Accept": "application/json, text/javascript, */*; q=0.01",
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Referer": find_product_url + productID,
+            "Referer": currentURL,
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
@@ -201,19 +188,35 @@ def addZielbestand(session, productID, from_date, to_date, product_quantity, fil
 
     return session
 
+def getProductAvailabilityPage(session, productID):
+    find_product_url = "https://erp.digitecgalaxus.ch/de/Product/Availability/"
+
+    r = session.get(find_product_url + productID)
+    soup = BeautifulSoup(r.text, 'html.parser')
+
+    return session, soup
+
 
 def main():
     # Load the cookies pkl file and store them in a session object
     session = get_cookies(validate=True)
 
+    product = "21881888"
+    date_start = "16.05.2023"
+    date_end = "09.05.2024"
+    quantity = 1
+
+    # Get the product availability page
+    session, soup = getProductAvailabilityPage(session, product)
+
     # Get the Lagerstand
-    session, lagerstand = getLagerStand(session, "23253714")
+    session, lagerstand = getLagerStand(session, soup, product)
 
     # Deleate the current Zielbestand
-    session = deleateZielbestand(session, "23253714")
+    session = deleateZielbestand(session, soup, product)
 
     # Add the new Zielbestand
-    session = addZielbestand(session, "23253714", "2021-12-01", "2021-12-31", 1)
+    session = addZielbestand(session, soup, product, date_start, date_end, quantity)
 
     # Store the cookies in a pickle file
     storeCookies(session)
