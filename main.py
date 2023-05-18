@@ -134,8 +134,68 @@ def deleateZielbestand(session, productID):
             'X-Requested-With': 'XMLHttpRequest'
         }
 
-        # Send the request
         r = session.post(deleate_url, params=params, data=data, headers=headers)
+
+        print(r)
+
+    return session
+
+# Takes in a session, productID and information about the new Zielbestand and adds it to the product for every filiale in the filialen list
+def addZielbestand(session, productID, from_date, to_date, product_quantity, filialen = ["Basel", "Bern", "Dietikon", "Genf", "Kriens", "Lausanne", "St. Gallen", "Winterthur", "Zürich"]):
+    print("Adding the new Zielbestand")
+
+    base_url = "https://erp.digitecgalaxus.ch"
+    find_product_url = base_url + "/de/Product/Availability/"
+
+    r = session.get(find_product_url + productID)
+    soup = BeautifulSoup(r.text, 'html.parser')
+
+    # Values encoded
+    values_encoded ={
+        'Basel': 246967,
+        'Bern': 246970,
+        'Dietikon': 246971,
+        'Genf': 246975,
+        'Kriens': 246968,
+        'Lausanne': 246965,
+        'St. Gallen': 246974,
+        'Winterthur': 246969,
+        'Wohlen': 246977,
+        'Zürich': 246938
+    }
+
+    # Find out the product mandant, necessary for the request
+    mandant = soup.select_one("#ProductBox1 > div.content.erpBoxContent > div:nth-child(3) > div:nth-child(8) > div:nth-child(2)").text.strip()
+
+    # The url on which the post request is made
+    create_url = base_url + f"/ProductSiteTargetInventoryOverride/TableNew/{mandant}"
+
+    for filiale in filialen:
+
+        params = {
+                'ajaxerplist': '2'
+        }
+
+        data = {
+            "ProductSiteTargetInventoryOverride.SiteId": values_encoded[filiale],
+            "ProductSiteTargetInventoryOverride.Quantity": product_quantity,
+            "ProductSiteTargetInventoryOverride.ValidFrom": from_date,
+            "ProductSiteTargetInventoryOverride.ValidTo" : to_date,
+            "save" : "",
+        }
+
+        headers = {
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Referer": find_product_url + productID,
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
+            "X-Requested-With": "XMLHttpRequest"
+        }
+
+        r = session.post(create_url, params=params, data=data, headers=headers)
 
         print(r)
 
@@ -151,6 +211,9 @@ def main():
 
     # Deleate the current Zielbestand
     session = deleateZielbestand(session, "23253714")
+
+    # Add the new Zielbestand
+    session = addZielbestand(session, "23253714", "2021-12-01", "2021-12-31", 1)
 
     # Store the cookies in a pickle file
     storeCookies(session)
