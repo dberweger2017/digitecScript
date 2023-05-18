@@ -86,6 +86,61 @@ def getLagerStand(session, productID):
 
     return session, lagerstand
 
+# takes in a session and productID and deleates all the zielbestand rules of said product
+def deleateZielbestand(session, productID):
+    print("Deleating the current Zielbestand")
+
+    base_url = "https://erp.digitecgalaxus.ch"
+    find_product_url = base_url + "/de/Product/Availability/"
+
+    r = session.get(find_product_url + productID)
+    soup = BeautifulSoup(r.text, 'html.parser')
+
+    # Find out how many rules there are
+    rule_table = soup.select_one("#ProductSiteTargetInventoryOverrideTable4 > form > table")
+
+    # Parse the table
+    tbody_elements = rule_table.find_all("tbody")[0]
+    tr_elements = tbody_elements.find_all("tr")
+    hrefs = [tr_element.find_all("a")[0]["href"] for tr_element in tr_elements]
+
+    # Traverse the hrefs and deleate the rules
+    for href in hrefs:
+        deleate_url = base_url + href
+
+        params = {
+            'ajaxerplist': '2'
+        }
+
+        data = {
+            'crud': 'delete'
+        }
+
+        headers = {
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en-US,en;q=0.9,de-CH;q=0.8,de;q=0.7',
+            'Content-Length': '11',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Origin': 'https://erp.digitecgalaxus.ch',
+            'Referer': find_product_url,
+            'Sec-Ch-Ua': '"Google Chrome";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+
+        # Send the request
+        r = session.post(deleate_url, params=params, data=data, headers=headers)
+
+        print(r)
+
+    return session
+
 
 def main():
     # Load the cookies pkl file and store them in a session object
@@ -94,7 +149,8 @@ def main():
     # Get the Lagerstand
     session, lagerstand = getLagerStand(session, "23253714")
 
-    print(lagerstand)
+    # Deleate the current Zielbestand
+    session = deleateZielbestand(session, "23253714")
 
     # Store the cookies in a pickle file
     storeCookies(session)
