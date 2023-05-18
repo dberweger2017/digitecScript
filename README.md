@@ -6,6 +6,7 @@ To run the script you need to install the following packages:
 - pandas==2.0.1
 - bs4==0.0.1
 - requests==2.30.0
+
 you can install them with the following command:
 ```
 pip install -r requirements.txt
