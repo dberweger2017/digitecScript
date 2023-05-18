@@ -197,30 +197,35 @@ def getProductAvailabilityPage(session, productID):
     return session, soup
 
 
+def updateZielbestand(session, productID, date_start, date_end, quantity):
+    # Get the product availability page
+    session, soup = getProductAvailabilityPage(session, productID)
+
+    # Get the Lagerstand
+    session, lagerstand = getLagerStand(session, soup, productID)
+
+    # Deleate the current Zielbestand
+    session = deleateZielbestand(session, soup, productID)
+
+    # Add the new Zielbestand
+    session = addZielbestand(session, soup, productID, date_start, date_end, quantity)
+
+    return session
+
 def main():
     # Load the cookies pkl file and store them in a session object
-    session = get_cookies(validate=True)
+    session = get_cookies(validate=False)
 
     product = "21881888"
     date_start = "16.05.2023"
     date_end = "09.05.2024"
     quantity = 1
 
-    # Get the product availability page
-    session, soup = getProductAvailabilityPage(session, product)
-
-    # Get the Lagerstand
-    session, lagerstand = getLagerStand(session, soup, product)
-
-    # Deleate the current Zielbestand
-    session = deleateZielbestand(session, soup, product)
-
-    # Add the new Zielbestand
-    session = addZielbestand(session, soup, product, date_start, date_end, quantity)
+    # Update the Zielbestand
+    updateZielbestand(session, product, date_start, date_end, quantity)
 
     # Store the cookies in a pickle file
     storeCookies(session)
-
 
 if __name__ == "__main__":
     main()
