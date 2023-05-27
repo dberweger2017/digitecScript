@@ -215,12 +215,14 @@ def updateZielbestand(session: requests.Session, productID: str, date_start: str
     deleateZielbestand(session, productID, soup=soup)
 
     # Add the new Zielbestand
-    addZielbestand(session, productID, date_start, date_end, quantity, soup=soup)
+    addZielbestand(session, productID, date_start, date_end, quantity, filialen, soup=soup)
 
     # Calculate how many products need to be transfered per filiale with the new Zielbestand
     productsForTransfer = {}
     for filiale in filialen:
-        if filiale in lagerstand:
+        if filiale not in lagerstand:
+            productsForTransfer[filiale] = quantity
+        else:
             productsForTransfer[filiale] = max(0, quantity - lagerstand[filiale])
     return productsForTransfer
 
