@@ -4,13 +4,10 @@ import os
 from bs4 import BeautifulSoup
 import pandas as pd
 
-# User defined parameters
+from typing import List, Dict, Union
 
-# Functions
-def get_cookies(cookiesFilePath = "data/cookies.pkl", validate = True):
-    print("Loading the cookies...")
-
-    # Create an empty session
+# Gets the cookies from a specified path and returns a session with them
+def get_cookies(cookiesFilePath: str = "data/cookies.pkl", validate: bool = True) -> requests.Session:
     session = requests.Session()
 
     # Get the cookies 
@@ -40,16 +37,15 @@ def get_cookies(cookiesFilePath = "data/cookies.pkl", validate = True):
 
 
 # Function to change the key name of a dictionary. Python should have a built in function for this
-def change_key_name(dictionary, old_key, new_key):
+def change_key_name(dictionary: dict, old_key: str, new_key: str) -> dict:
     if old_key in dictionary:
         value = dictionary.pop(old_key)
         dictionary[new_key] = value
     return dictionary
 
-# Takes in a session and a productID and raeturns the Lagerstand in a dictionary with the city as the key being the filiale and the value being how many available products there are in that filiale
-def getLagerStand(session, productID, soup=None):
-    print("Getting the Lagerstand")
 
+# Function to get the Lafgerstand of a given product, if no soup is given, the soup will be requested
+def getLagerStand(session: requests.Session, productID: str, soup=None) -> Union[Dict[str, int], BeautifulSoup]:
     if soup == None:
         find_product_url = "https://erp.digitecgalaxus.ch/de/Product/Availability/"
 
@@ -64,6 +60,7 @@ def getLagerStand(session, productID, soup=None):
     td_elements = [tr_element.find_all("td")[1:] for tr_element in tr_elements]
     td_elements = [[td_element.text.strip() for td_element in td_element] for td_element in td_elements]
 
+    # Store the Lagerstand in a dictionary
     lagerstand = {}
 
     for td_element in td_elements:
@@ -72,7 +69,8 @@ def getLagerStand(session, productID, soup=None):
                 lagerstand[td_element[1]] = int(td_element[2])
             else:
                 lagerstand[td_element[1]] += int(td_element[2])
-
+    
+    # Some of the filialen have different names in the Lagerstand than in the Zielbestand
     if "StGallen" in lagerstand:
         lagerstand = change_key_name(lagerstand, "StGallen", "St. Gallen")
     if "Zurich" in lagerstand:
@@ -80,10 +78,8 @@ def getLagerStand(session, productID, soup=None):
 
     return lagerstand, soup
 
-# takes in a session and productID and deleates all the zielbestand rules of said product
-def deleateZielbestand(session, productID, soup=None):
-    print("Deleating the current Zielbestand")
-
+# Function to deleate all the current Zielbestand rules, if no soup is given, the soup will be requested
+def deleateZielbestand(session: requests.Session, productID: str, soup=None) -> BeautifulSoup:
     if soup == None:
         find_product_url = "https://erp.digitecgalaxus.ch/de/Product/Availability/"
         
@@ -101,6 +97,7 @@ def deleateZielbestand(session, productID, soup=None):
     currentURL = "https://erp.digitecgalaxus.ch/de/Product/Availability/" + productID
 
     # Traverse the hrefs and deleate the rules
+    num_requests = 0
     for href in hrefs:
         deleate_url = "https://erp.digitecgalaxus.ch" + href
 
@@ -132,15 +129,18 @@ def deleateZielbestand(session, productID, soup=None):
 
         r = session.post(deleate_url, params=params, data=data, headers=headers)
 
-        print(r)
+        if r.status_code == 200:
+            num_requests += 1
+        else:
+            print(f"Error: {r.status_code}")
+    
+    print(f"Deleated {num_requests} rules")
 
     return soup
 
 
 # Takes in a session, productID and information about the new Zielbestand and adds it to the product for every filiale in the filialen list
-def addZielbestand(session, productID, from_date, to_date, product_quantity, filialen = ["Basel", "Bern", "Dietikon", "Genf", "Kriens", "Lausanne", "St. Gallen", "Winterthur", "Zürich"], soup=None):
-    print("Adding the new Zielbestand")
-
+def addZielbestand(session: requests.Session, productID: str, from_date: str, to_date: str, product_quantity: int, filialen: List[str], soup=None) -> BeautifulSoup:
     if soup == None:
         find_product_url = "https://erp.digitecgalaxus.ch/de/Product/Availability/"
         
@@ -168,6 +168,8 @@ def addZielbestand(session, productID, from_date, to_date, product_quantity, fil
     create_url = "https://erp.digitecgalaxus.ch/ProductSiteTargetInventoryOverride/TableNew/" + mandant
     currentURL = "https://erp.digitecgalaxus.ch/de/Product/Availability/" + productID
 
+    # Make a post request for every filiale
+    num_requests = 0
     for filiale in filialen:
 
         params = {
@@ -195,23 +197,32 @@ def addZielbestand(session, productID, from_date, to_date, product_quantity, fil
 
         r = session.post(create_url, params=params, data=data, headers=headers)
 
-        print(r)
+        if r.status_code == 200:
+            num_requests += 1
+        else:
+            print(f"Error: {r.status_code}")
+    
+    print(f"Added {num_requests} rules")
 
     return soup
 
-
-def updateZielbestand(session, productID, date_start, date_end, quantity):
-
+# Higher level function to update the Zielbestand of a product, returns a dictionary of how many products will be transfered to each filiale in the filialen
+def updateZielbestand(session: requests.Session, productID: str, date_start: str, date_end:str, quantity: int, filialen: List[str] = ["Basel", "Bern", "Dietikon", "Genf", "Kriens", "Lausanne", "St. Gallen", "Winterthur", "Zürich"]) -> Dict[str, int]:
     # Get the Lagerstand
     lagerstand, soup = getLagerStand(session, productID)
-
-    print(lagerstand)
 
     # Deleate the current Zielbestand
     deleateZielbestand(session, productID, soup=soup)
 
     # Add the new Zielbestand
     addZielbestand(session, productID, date_start, date_end, quantity, soup=soup)
+
+    # Calculate how many products need to be transfered per filiale with the new Zielbestand
+    productsForTransfer = {}
+    for filiale in filialen:
+        if filiale in lagerstand:
+            productsForTransfer[filiale] = max(0, quantity - lagerstand[filiale])
+    return productsForTransfer
 
 def main():
     # Load the cookies pkl file and store them in a session object
@@ -224,8 +235,10 @@ def main():
     date_end = "09.05.2024"
     quantity = 1
 
-    # Update the Zielbestand
-    updateZielbestand(session, product, date_start, date_end, quantity)
+
+    print(updateZielbestand(session, product, date_start, date_end, quantity))
+
+
 
 if __name__ == "__main__":
     main()
