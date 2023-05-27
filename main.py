@@ -19,7 +19,8 @@ def get_cookies(cookiesFilePath = "data/cookies.pkl", validate = True):
             cookies = pickle.load(file) # Could not figure out how to authenticate with the ERP (especially because of 2FA), so I just copy the cookies from my browser and keep track of the Auth2.0 behaviour. Defeneteley something to change in the future.
     else:
         print("No cookies found in path: " + cookiesFilePath)
-
+        return None
+    
     # Store the cookies in the session
     try:
         session.cookies.update(cookies)
@@ -34,18 +35,9 @@ def get_cookies(cookiesFilePath = "data/cookies.pkl", validate = True):
         if response.url.startswith("https://erp.digitecgalaxus.ch/de/Login"): # If im redirected to the login page, the cookies are not valid
             print("Cookies are not valid. Please run the cookiesGrab.py.")
             return None
-
+        
     return session
 
-def storeCookies(session, cookiesFilePath = "data/cookies.pkl"):
-    print("Storing the cookies...")
-
-    # make sure the data folder exists
-    if not os.path.exists('data'):
-        os.makedirs('data')
-
-    with open(cookiesFilePath, 'wb') as file:
-        pickle.dump(session.cookies, file)
 
 # Function to change the key name of a dictionary. Python should have a built in function for this
 def change_key_name(dictionary, old_key, new_key):
@@ -55,8 +47,14 @@ def change_key_name(dictionary, old_key, new_key):
     return dictionary
 
 # Takes in a session and a productID and raeturns the Lagerstand in a dictionary with the city as the key being the filiale and the value being how many available products there are in that filiale
-def getLagerStand(session, soup, productID):
+def getLagerStand(session, productID, soup=None):
     print("Getting the Lagerstand")
+
+    if soup == None:
+        find_product_url = "https://erp.digitecgalaxus.ch/de/Product/Availability/"
+
+        r = session.get(find_product_url + productID)
+        soup = BeautifulSoup(r.text, 'html.parser')
 
     # Find the table
     table = soup.select_one("#ProductProductWarehouseCompartment2 > div.content.erpBoxContent > div > div > div > table")
@@ -80,11 +78,17 @@ def getLagerStand(session, soup, productID):
     if "Zurich" in lagerstand:
         lagerstand = change_key_name(lagerstand, "Zurich", "Zürich")
 
-    return session, lagerstand
+    return lagerstand, soup
 
 # takes in a session and productID and deleates all the zielbestand rules of said product
-def deleateZielbestand(session, soup, productID):
+def deleateZielbestand(session, productID, soup=None):
     print("Deleating the current Zielbestand")
+
+    if soup == None:
+        find_product_url = "https://erp.digitecgalaxus.ch/de/Product/Availability/"
+        
+        r = session.get(find_product_url + productID)
+        soup = BeautifulSoup(r.text, 'html.parser')
 
     # Find out how many rules there are
     rule_table = soup.select_one("#ProductSiteTargetInventoryOverrideTable4 > form > table")
@@ -130,11 +134,18 @@ def deleateZielbestand(session, soup, productID):
 
         print(r)
 
-    return session
+    return soup
+
 
 # Takes in a session, productID and information about the new Zielbestand and adds it to the product for every filiale in the filialen list
-def addZielbestand(session, soup, productID, from_date, to_date, product_quantity, filialen = ["Basel", "Bern", "Dietikon", "Genf", "Kriens", "Lausanne", "St. Gallen", "Winterthur", "Zürich"]):
+def addZielbestand(session, productID, from_date, to_date, product_quantity, filialen = ["Basel", "Bern", "Dietikon", "Genf", "Kriens", "Lausanne", "St. Gallen", "Winterthur", "Zürich"], soup=None):
     print("Adding the new Zielbestand")
+
+    if soup == None:
+        find_product_url = "https://erp.digitecgalaxus.ch/de/Product/Availability/"
+        
+        r = session.get(find_product_url + productID)
+        soup = BeautifulSoup(r.text, 'html.parser')
 
     # Values encoded
     values_encoded ={
@@ -186,35 +197,27 @@ def addZielbestand(session, soup, productID, from_date, to_date, product_quantit
 
         print(r)
 
-    return session
-
-def getProductAvailabilityPage(session, productID):
-    find_product_url = "https://erp.digitecgalaxus.ch/de/Product/Availability/"
-
-    r = session.get(find_product_url + productID)
-    soup = BeautifulSoup(r.text, 'html.parser')
-
-    return session, soup
+    return soup
 
 
 def updateZielbestand(session, productID, date_start, date_end, quantity):
-    # Get the product availability page
-    session, soup = getProductAvailabilityPage(session, productID)
 
     # Get the Lagerstand
-    session, lagerstand = getLagerStand(session, soup, productID)
+    lagerstand, soup = getLagerStand(session, productID)
+
+    print(lagerstand)
 
     # Deleate the current Zielbestand
-    session = deleateZielbestand(session, soup, productID)
+    deleateZielbestand(session, productID, soup=soup)
 
     # Add the new Zielbestand
-    session = addZielbestand(session, soup, productID, date_start, date_end, quantity)
-
-    return session
+    addZielbestand(session, productID, date_start, date_end, quantity, soup=soup)
 
 def main():
     # Load the cookies pkl file and store them in a session object
     session = get_cookies(validate=False)
+
+    assert session != None, "The cookies are not valid. Please run the cookiesGrab.py."
 
     product = "21881888"
     date_start = "16.05.2023"
@@ -223,9 +226,6 @@ def main():
 
     # Update the Zielbestand
     updateZielbestand(session, product, date_start, date_end, quantity)
-
-    # Store the cookies in a pickle file
-    storeCookies(session)
 
 if __name__ == "__main__":
     main()
