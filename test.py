@@ -108,6 +108,11 @@ def main():
                 st.write(current_transfer)
                 df.to_csv("transfered.csv", index=False)
 
+            if max_transfers_per_run >= max_quantity:
+                st.balloons()
+                st.stop()
+
+
 
 
 
