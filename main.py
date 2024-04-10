@@ -35,14 +35,12 @@ def get_cookies(cookiesFilePath: str = "data/cookies.pkl", validate: bool = True
         
     return session
 
-
 # Function to change the key name of a dictionary. Python should have a built in function for this
 def change_key_name(dictionary: dict, old_key: str, new_key: str) -> dict:
     if old_key in dictionary:
         value = dictionary.pop(old_key)
         dictionary[new_key] = value
     return dictionary
-
 
 # Function to get the Lafgerstand of a given product, if no soup is given, the soup will be requested
 def getLagerStand(session: requests.Session, productID: str, soup=None) -> Union[Dict[str, int], BeautifulSoup]:
@@ -138,7 +136,6 @@ def deleateZielbestand(session: requests.Session, productID: str, soup=None) -> 
 
     return soup
 
-
 # Takes in a session, productID and information about the new Zielbestand and adds it to the product for every filiale in the filialen list
 def addZielbestand(session: requests.Session, productID: str, from_date: str, to_date: str, product_quantity: int, filialen: List[str], soup=None) -> BeautifulSoup:
     if soup == None:
@@ -228,7 +225,7 @@ def updateZielbestand(session: requests.Session, productID: str, date_start: str
 
 def main():
     # Load the cookies pkl file and store them in a session object
-    session = get_cookies(validate=False)
+    session = get_cookies(validate=True)
 
     assert session != None, "The cookies are not valid. Please run the cookiesGrab.py."
 
@@ -237,9 +234,7 @@ def main():
     date_end = "09.05.2024"
     quantity = 1
 
-
     print(updateZielbestand(session, product, date_start, date_end, quantity))
-
 
 
 if __name__ == "__main__":
