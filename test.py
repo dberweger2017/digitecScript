@@ -1,6 +1,8 @@
 import pandas as pd
 import streamlit as st
 import json
+import time
+from main import updateZielbestand, getLagerStand, deleateZielbestand, addZielbestand, get_cookies
 
 def load_settings():
     # load settings.json
@@ -35,9 +37,19 @@ def main():
             bemerkungen_column = st.selectbox("Bemerkungen", columns, index=settings["bemerkungen_column_index"])
             bemerkungen_string_deutschweitz = st.text_input("Bemerkungen (Deutschweitz) str", value="Nur in Deutschschweiz")
             bemerkungen_string_franz = st.text_input("Bemerkungen (Franz) str (Startswith)", value="Franz nur in LA")
+            start = st.date_input("Start", value=pd.to_datetime(settings["start"]))
+            end = st.date_input("End", value=pd.to_datetime(settings["end"]))
+            start_str = f"{start.day}.{start.month}.{start.year}"
+            end_str = f"{end.day}.{end.month}.{end.year}"
 
         with st.expander("Strategy"):
             max_transfers_per_run = st.number_input("Max transfers per run", min_value=1, value=settings["max_trans_default_value"], step=1)
+
+        cookies = get_cookies()
+        if cookies:
+            st.write("Cookies are valid!")
+        else:
+            st.error("Cookies are not valid. Please run the cookiesGrab.py.")
 
         button = st.button("Save")
         if button:
@@ -48,16 +60,38 @@ def main():
             settings["bemerkungen_string_deutschweitz"] = bemerkungen_string_deutschweitz
             settings["bemerkungen_string_franz"] = bemerkungen_string_franz
             settings["max_trans_default_value"] = max_transfers_per_run
+            settings["start"] = f"{start.year}-{start.month}-{start.day}"
+            settings["end"] = f"{end.year}-{end.month}-{end.day}"
             save_settings(settings)
+            st.success("Settings saved!")
 
     with st.expander("Data"):
         st.write(df)
 
+    run = st.button("Run")
+    if run:
+        progress_bar = st.progress(0)
+        #for i in range(max_transfers_per_run):
+        #    time.sleep(0.1)
+        #    progress_bar.progress(i + 1)
+
+        current_transfer = {}
+
+        total = len(df)
+
+        for index, row in df.iterrows():
+            progress_bar.progress(index/total)
+            product = int(row["Product Id"])
+            zielbestand = int(row["Stück pro Filiale"])
+            bemerkungen = row['Bemerkungen']
+
+            st.write(product, zielbestand, bemerkungen)
+            time.sleep(0.1)
+
+            updates = updateZielbestand(cookies, product, start_str, end_str, zielbestand, bemerkungen)
+
+            
+
+
+
 main()
-
-
-# for every row in the dataframe
-#for index, row in df.iterrows():
-#    product = int(row["Product Id"])
-#    zielbestand = int(row["Stück pro Filiale"])
-#    bemerkungen = row['Bemerkungen']
