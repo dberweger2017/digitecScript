@@ -82,8 +82,6 @@ def main():
         max_quantity = 0
 
         for index, row in df.iterrows():
-
-            continue
             progress_bar.progress(max_quantity/max_transfers_per_run)
             product = int(row["Product Id"])
             zielbestand = int(row["Stück pro Filiale"])
@@ -91,8 +89,9 @@ def main():
 
             updates = updateZielbestand(cookies, product, start_str, end_str, zielbestand, bemerkungen)
 
-            # Create a new "Transfered" column and state as True on that row
+            # Create a new "Transfered" column that stores the current date
             df.loc[index, "Transfered"] = True
+            df.loc[index, "Date"] = time.strftime("%Y-%m-%d")
             
             if updates:
                 for update in updates:
@@ -105,7 +104,9 @@ def main():
             max_quantity = max(current_transfer.values())
 
             if index % 10 == 0:
+                st.subheader(f"Ran 10 rows out of {len(df)}, {index}/{len(df)}%")
                 st.write(current_transfer)
+                df.to_csv("transfered.csv", index=False)
 
 
 
