@@ -1,4 +1,4 @@
-# digitecScript
+# DigitecScript
 
 ## Installation
 To run the script you need to install the following packages:
