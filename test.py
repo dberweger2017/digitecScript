@@ -82,6 +82,8 @@ def main():
         max_quantity = 0
 
         for index, row in df.iterrows():
+
+            continue
             progress_bar.progress(max_quantity/max_transfers_per_run)
             product = int(row["Product Id"])
             zielbestand = int(row["Stück pro Filiale"])
