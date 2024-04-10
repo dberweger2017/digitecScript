@@ -71,16 +71,15 @@ def main():
     run = st.button("Run")
     if run:
         progress_bar = st.progress(0)
-        #for i in range(max_transfers_per_run):
-        #    time.sleep(0.1)
-        #    progress_bar.progress(i + 1)
 
         current_transfer = {}
 
         total = len(df)
 
+        max_quantity = 0
+
         for index, row in df.iterrows():
-            progress_bar.progress(index/total)
+            progress_bar.progress(max_quantity/max_transfers_per_run)
             product = int(row["Product Id"])
             zielbestand = int(row["Stück pro Filiale"])
             bemerkungen = row['Bemerkungen']
@@ -89,6 +88,18 @@ def main():
             time.sleep(0.1)
 
             updates = updateZielbestand(cookies, product, start_str, end_str, zielbestand, bemerkungen)
+            
+            if updates:
+                for update in updates:
+                    if update["filiale"] not in current_transfer:
+                        current_transfer[update["filiale"]] = update["quantity"]
+                    else:
+                        current_transfer[update["filiale"]] += update["quantity"]
+
+            # get the max quantity from the current_transfer dict
+            max_quantity = max(current_transfer.values())
+
+
 
             
 
