@@ -46,8 +46,9 @@ def main():
             max_transfers_per_run = st.number_input("Max transfers per run", min_value=1, value=settings["max_trans_default_value"], step=1)
 
         cookies = get_cookies()
+
         if cookies:
-            st.write("Cookies are valid!")
+            st.success("Cookies are valid!")
         else:
             st.error("Cookies are not valid. Please run the cookiesGrab.py.")
 
@@ -70,11 +71,13 @@ def main():
 
     run = st.button("Run")
     if run:
+        if not cookies:
+            st.error("Cookies are not valid. Please run the cookiesGrab.py.")
+            st.stop()
+
         progress_bar = st.progress(0)
 
         current_transfer = {}
-
-        total = len(df)
 
         max_quantity = 0
 
@@ -84,10 +87,10 @@ def main():
             zielbestand = int(row["Stück pro Filiale"])
             bemerkungen = row['Bemerkungen']
 
-            st.write(product, zielbestand, bemerkungen)
-            time.sleep(0.1)
-
             updates = updateZielbestand(cookies, product, start_str, end_str, zielbestand, bemerkungen)
+
+            # Create a new "Transfered" column and state as True on that row
+            df.loc[index, "Transfered"] = True
             
             if updates:
                 for update in updates:
@@ -98,6 +101,10 @@ def main():
 
             # get the max quantity from the current_transfer dict
             max_quantity = max(current_transfer.values())
+
+            if index % 10 == 0:
+                st.write(current_transfer)
+
 
 
 
